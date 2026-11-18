@@ -1,7 +1,8 @@
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const { MongoClient, ServerApiVersion } = require("mongodb");
-require("dotenv").config();
+const { verifyToken, verifyCustomer } = require("./middlewares/auth");
 
 const app = express();
 app.use(cors());
@@ -24,6 +25,10 @@ run();
 
 app.get("/", (req, res) => {
   res.send("FixMate server is running");
+});
+
+app.get("/api/test-protected", verifyToken, verifyCustomer, (req, res) => {
+  res.send({ message: "You are a verified customer!", user: req.decoded });
 });
 
 const port = process.env.PORT || 5000;
