@@ -1,50 +1,42 @@
-const { jwtVerify, createRemoteJWKSet } = require("jose");
+const jwt = require('jsonwebtoken');
+require('dotenv').config();
 
-const JWKS = createRemoteJWKSet(
-  new URL(`${process.env.CLIENT_URL}/api/auth/jwks`)
-);
-
-async function verifyToken(req, res, next) {
+// 1. Verify Token
+const verifyToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).send({ message: "Unauthorized access" });
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'Unauthorized: No token provided' });
   }
 
-  const token = authHeader.split(" ")[1];
+  const token = authHeader.split(' ')[1];
 
   try {
-    const { payload } = await jwtVerify(token, JWKS, {
-      issuer: process.env.CLIENT_URL,
-      audience: process.env.CLIENT_URL,
-    });
-    req.decoded = payload;
+    // BetterAuth uses its own secret for JWT
+    const decoded = jwt.verify(token, process.env.BETTER_AUTH_SECRET);
+    req.user = decoded;
     next();
-  } catch (err) {
-    console.error("JWT verify failed:", err.message);
-    return res.status(401).send({ message: "Unauthorized access" });
+  } catch (error) {
+    return res.status(401).json({ message: 'Unauthorized: Invalid token' });
   }
-}
+};
 
-function verifyCustomer(req, res, next) {
-  if (req.decoded?.role !== "customer") {
-    return res.status(403).send({ message: "Forbidden access" });
-  }
-  next();
-}
+// 2. Role-Based Middlewares
+const verifyRole = (roles) => {
+  return (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return res.status(403).json({ message: 'Forbidden: Access denied' });
+    }
+    next();
+  };
+};
 
-function verifyTechnician(req, res, next) {
-  if (req.decoded?.role !== "technician") {
-    return res.status(403).send({ message: "Forbidden access" });
-  }
-  next();
-}
+const verifyCustomer = verifyRole(['customer']);
+const verifyTechnician = verifyRole(['technician']);
+const verifyAdmin = verifyRole(['admin']);
 
-function verifyAdmin(req, res, next) {
-  if (req.decoded?.role !== "admin") {
-    return res.status(403).send({ message: "Forbidden access" });
-  }
-  next();
-}
-
-module.exports = { verifyToken, verifyCustomer, verifyTechnician, verifyAdmin };
+module.exports = {
+  verifyToken,
+  verifyCustomer,
+  verifyTechnician,
+  verifyAdmin
+};
