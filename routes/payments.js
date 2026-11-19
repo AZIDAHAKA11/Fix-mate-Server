@@ -16,8 +16,10 @@ router.post('/create-checkout-session', async (req, res) => {
     const booking = await db.collection('bookings').findOne({ _id: new ObjectId(bookingId) });
     
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    
+    // Payment Gate Check (Challenge 3)
     if (booking.status !== 'completed' || booking.paymentStatus === 'paid') {
-      return res.status(400).json({ message: 'Booking is not eligible for payment' });
+      return res.status(400).json({ message: 'Booking is not eligible for payment. It must be completed and unpaid.' });
     }
 
     const session = await stripe.checkout.sessions.create({
@@ -111,5 +113,4 @@ router.get('/my', async (req, res) => {
   }
 });
 
-module.exports = router;// update
-// update
+module.exports = router;
